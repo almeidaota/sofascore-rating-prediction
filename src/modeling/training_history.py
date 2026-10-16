@@ -78,7 +78,10 @@ def run_history_training(
             fixed_params_by_position=specialist_fixed,
             **({} if specialist_fixed is not None else tune_kwargs),
         )
-        predictions_parts.append(build_predictions(test_df, baseline_pred, generic_pred, specialist_pred))
+        part = build_predictions(test_df, baseline_pred, generic_pred, specialist_pred)
+        part["pred_athlete_season"] = V.athlete_baseline_predict(test_df, "player_rating_avg_prior_season", baseline_pred)
+        part["pred_athlete_last5"] = V.athlete_baseline_predict(test_df, "player_rating_avg_prior_last5", baseline_pred)
+        predictions_parts.append(part)
         # importância de cada lote com os modelos daquele lote, sobre o próprio lote
         importances_parts.append(build_importances(generic_cols, generic_result, specialists, test_df))
 
@@ -92,11 +95,35 @@ def run_history_training(
     predictions = pd.concat(predictions_parts, ignore_index=True)
     metrics_df = V.metrics_table(
         predictions, F.TARGET,
-        {"baseline": "pred_baseline", "generic": "pred_generic", "specialist": "pred_specialist"},
+        {
+            "baseline": "pred_baseline",
+            "athlete_season": "pred_athlete_season",
+            "athlete_last5": "pred_athlete_last5",
+            "generic": "pred_generic",
+            "specialist": "pred_specialist",
+        },
+        athlete_baseline_model="athlete_season",
     )
-    comparison_df = V.compare_models(
-        predictions, F.TARGET, "pred_generic", "pred_specialist",
-        "generic", "specialist", "generic_vs_specialist",
+    comparison_df = pd.concat(
+        [
+            V.compare_models(
+                predictions, F.TARGET, "pred_generic", "pred_specialist",
+                "generic", "specialist", "generic_vs_specialist",
+            ),
+            V.compare_models(
+                predictions, F.TARGET, "pred_athlete_season", "pred_generic",
+                "athlete_season", "generic", "athlete_season_vs_generic",
+            ),
+            V.compare_models(
+                predictions, F.TARGET, "pred_athlete_season", "pred_specialist",
+                "athlete_season", "specialist", "athlete_season_vs_specialist",
+            ),
+            V.compare_models(
+                predictions, F.TARGET, "pred_athlete_last5", "pred_generic",
+                "athlete_last5", "generic", "athlete_last5_vs_generic",
+            ),
+        ],
+        ignore_index=True,
     )
     # importâncias: média dos 8 lotes, ponderada pelas atuações de teste de cada um
     importances_df = aggregate_importances(importances_parts)

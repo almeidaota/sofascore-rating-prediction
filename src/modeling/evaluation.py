@@ -30,6 +30,16 @@ def baseline_predict(
     return test_df[position_col].map(means)
 
 
+def athlete_baseline_predict(
+    test_df: pd.DataFrame,
+    history_col: str,
+    position_baseline: pd.Series,
+) -> pd.Series:
+    """Baseline do atleta: prevê a média das notas anteriores do próprio jogador
+    (`history_col`); sem histórico, usa a baseline da posição."""
+    return test_df[history_col].fillna(position_baseline)
+
+
 def bootstrap_mae_diff(
     df: pd.DataFrame,
     y_col: str,
@@ -110,16 +120,24 @@ def metrics_table(
     pred_cols: dict[str, str],
     position_col: str = F.POSITION_COLUMN,
     baseline_model: str = "baseline",
+    athlete_baseline_model: str | None = None,
 ) -> pd.DataFrame:
     """1 linha por (modelo, posição incl. 'geral'): mae, rmse, r2, ganho sobre a
-    baseline (mesma posição), n."""
+    baseline (mesma posição), n. Com `athlete_baseline_model`, também o ganho
+    sobre a baseline do atleta (`gain_over_athlete`)."""
     rows = []
     for position_label, subset in _position_slices(predictions, position_col):
         baseline_mae = mean_absolute_error(subset[y_col], subset[pred_cols[baseline_model]])
+        athlete_mae = (
+            mean_absolute_error(subset[y_col], subset[pred_cols[athlete_baseline_model]])
+            if athlete_baseline_model else None
+        )
         for model_name, pred_col in pred_cols.items():
             row = {"model": model_name, "position": position_label}
             row.update(metrics(subset[y_col], subset[pred_col]))
             row["gain_over_baseline"] = 1 - row["mae"] / baseline_mae if baseline_mae else float("nan")
+            if athlete_baseline_model:
+                row["gain_over_athlete"] = 1 - row["mae"] / athlete_mae if athlete_mae else float("nan")
             rows.append(row)
     return pd.DataFrame(rows)
 
