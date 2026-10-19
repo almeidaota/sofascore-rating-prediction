@@ -1,140 +1,82 @@
-# SofaScore Scraper — Brasileirão Série A 2025
+# Predicting football player ratings before kick-off with Random Forest
 
-Crawler modular e testável que extrai **estatísticas individuais partida a partida**
-de todos os jogadores do Campeonato Brasileiro Série A 2025 a partir da API
-interna do SofaScore (`api.sofascore.com/api/v1`), exportando para CSV em `data/`.
+Code for my undergraduate thesis (Technology in Systems Analysis and Development, FATEC Sorocaba, Brazil, 2026), supervised by Prof. Dr. Maria das Graças J. M. Tomazela.
 
-> **Aviso ético/acadêmico.** A API do SofaScore é privada e seu uso automatizado
-> provavelmente viola os Termos de Serviço do site. Este código existe para fins
-> acadêmicos (TCC). Use com volume baixo, delay gentil e nunca redistribua os
-> dados. Respeite `robots.txt` e interrompa o uso se receber bloqueios (403/429).
+**Research question:** can Random Forest models specialised by position (goalkeeper, defender, midfielder, forward) predict a player's Sofascore rating *before* the match with lower error than a single generic model?
 
-## Stack
+**Short answer:** no. Specialisation did not reduce the error. The generic model beat a position-average baseline by about 6% (MAE), but most of a match rating cannot be predicted before the game.
 
-- `httpx` — requisições HTTP com timeouts e headers de navegador.
-- `tenacity` — retry exponencial com backoff/jitter para 429 e erros 5xx.
-- `pydantic` v2 — validação estrita de tipos de cada registro extraído.
-- `pandas` — pré-processamento do dataset para modelagem.
-- `pytest` — testes offline sobre payloads reais congelados em `tests/fixtures/`.
+## Pipeline
 
-## Instalação
+```mermaid
+flowchart LR
+    API([Sofascore API]) -->|scrape.py| RAW[(raw CSV)]
+    RAW -->|clean.py| PROC[(clean dataset)]
+    PROC -->|train_history.py| RES[(metrics, predictions,<br/>importances)]
+```
+
+1. **Collection** (`src/scraping/`): a crawler for Sofascore's internal web API, with rate limiting, retries with backoff, checkpoint/resume, and Pydantic validation of every row. It collected 11,977 player-match records covering all 380 matches of the 2025 Brazilian Série A.
+2. **Pre-processing** (`src/cleaning/`): one function per cleaning step (missing values, types, categorical codes).
+3. **Modelling** (`src/modeling/`): pre-match features only. These are home/away, opponent strength, and the player's own history up to (not including) the match being predicted: season averages of 61 statistics, plus season and last-5 averages of rating and minutes. Statistics from the match itself are never used, to avoid leaking the target.
+
+## Method
+
+- **Models:** one generic Random Forest (all positions) vs. four position specialists, compared against a position-average baseline and an athlete-average baseline.
+- **Validation:** walk-forward (expanding window) over the last 80 matches, 10 matches per step, ordered by kick-off time.
+- **Tuning:** grid search with time-ordered cross-validation inside the training window (5 folds of 30 matches, always after the training data). OOB error is reported as a check.
+- **Comparison:** bootstrap 95% confidence intervals (2,000 resamples) for the MAE difference between models.
+- **Interpretation:** permutation importance on the test set.
+
+## Results
+
+Test set: 80 matches, 2,494 player-match records.
+
+| Model | MAE | R² |
+|---|---|---|
+| Position-average baseline | 0.398 | 0.01 |
+| Athlete season average | 0.389 | 0.05 |
+| Position specialists | 0.375 | 0.10 |
+| **Generic Random Forest** | **0.374** | **0.10** |
+
+- The generic model was 6.0% better than the position baseline and 3.9% better than the athlete's own season average.
+- The generic vs. specialist difference was not significant: the 95% CI of the MAE difference included zero.
+- For goalkeepers, no model beat the baseline (R² ≤ 0). Their rating depends mostly on saves and goals conceded in the match itself.
+- Predictions stayed close to the mean (SD 0.16 vs. 0.54 for real ratings). The model shifts predictions with home advantage and player history, but it cannot anticipate unusually good or bad performances.
+
+## Running it
 
 ```bash
 python -m venv .venv
 ./.venv/bin/pip install -r requirements.txt
+
+./.venv/bin/python scrape.py          # 1. collect (about 1–2 s between requests)
+./.venv/bin/python clean.py           # 2. pre-process
+./.venv/bin/python train_history.py   # 3. train and evaluate (about 10 min)
+
+./.venv/bin/python -m pytest -q       # tests run offline
 ```
 
-## Uso
+The dataset is **not included** in this repository. Sofascore data belongs to Sofascore, so run `scrape.py` to rebuild it.
 
-```bash
-# Temporada 2025 completa (rodadas 1-38), particionado por rodada + CSV consolidado
-./.venv/bin/python scrape.py
-
-# Rodadas específicas, sem partition, sem resume, delays customizados
-./.venv/bin/python scrape.py --from-round 1 --to-round 1 --no-partition --no-resume \
-    --delay-min 1.2 --delay-max 2.4
-```
-
-Saída (criada automaticamente):
-
-```
-data/
-├── brasileirao_2025_jogadores_partida_a_partida.csv   # consolidado (utf-8-sig)
-├── rodada_01.csv ... rodada_38.csv                     # particionado (opcional)
-└── checkpoint.json                                     # resume por rodada
-```
-
-### Reproducibilidade
-
-- **Resume:** após cada rodada o checkpoint é salvo; uma execução interrompida
-  continua da rodada seguinte (`--no-resume` recomeça do zero).
-- **Determinismo:** linhas ordenadas por `(match_date, match_id, team_id, player_id)`
-  e header fixo definido pela ordem dos campos do modelo Pydantic — duas execuções
-  idênticas geram o mesmo arquivo.
-- **Fixtures reais:** `tests/fixtures/` guarda payloads autênticos da rodada 1/2025,
-  então a suíte roda 100% offline, sem rede.
-
-## Pré-processamento
-
-Gera o dataset para modelagem a partir do CSV consolidado, sem nenhuma requisição à API:
-
-```bash
-./.venv/bin/python clean.py   # → data/processed/brasileirao_2025_dataset_modelo.csv
-```
-
-Etapas, regras de valores ausentes, dicionário das colunas novas e números medidos:
-[`docs/pre_processamento.md`](docs/pre_processamento.md). Organização do código e onde
-estender: [`docs/arquitetura.md`](docs/arquitetura.md).
-
-## Modelagem (proposta)
-
-Comparação entre um modelo genérico e um modelo por posição (G, D, M, F) para prever a nota:
-desenho experimental, validação e arquitetura em [`docs/modelagem.md`](docs/modelagem.md).
-
-## Testes
-
-```bash
-./.venv/bin/python -m pytest -q
-```
-
-## Como funciona
-
-1. Resolve o `season_id` do ano desejado (`/unique-tournament/325/seasons`).
-2. Para cada rodada: `/unique-tournament/325/season/{sid}/events/round/{n}` e filtra
-   partidas com `status.type == "finished"`.
-3. Para cada partida: `/event/{id}/lineups` (estatísticas por jogador) e
-   `/event/{id}/incidents` (cartões amarelos/vermelhos por jogador e minuto).
-4. Normaliza em registros tipados (`PlayerMatchStat`, Pydantic) e escreve o CSV.
-   Substitutos não utilizados (sem `minutesPlayed`) são descartados — a linha
-   contém apenas **titulares e reservas que entraram em campo**.
-
-## Estrutura
-
-Uma pasta por etapa. Detalhes em [`docs/arquitetura.md`](docs/arquitetura.md).
+## Repository layout
 
 ```text
-sofascore_scraper/
-├── scrape.py              # 1. coleta            → data/*.csv
-├── clean.py               # 2. pré-processamento → data/processed/
-├── train_history.py       # 3. modelagem (pré-jogo, o do TCC) → data/results_history*/
-├── src/
-│   ├── config.py          # constantes: URLs, tournament/season, delays, caminhos
-│   ├── scraping/          # client, headers, rate_limiter, models, parsers, crawler, csv_writer
-│   ├── cleaning/          # cleaners (etapas), pipeline (lê o bruto, grava o limpo)
-│   └── modeling/          # features, history, estimators, evaluation, training, training_history
-├── tests/                 # testes automatizados, uma pasta por etapa
-│   ├── scraping/          # conftest.py e fixtures/ (payloads reais da rodada 1/2025)
-│   ├── cleaning/
-│   └── modeling/
-├── docs/                  # arquitetura.md, pre_processamento.md, modelagem.md
-├── data/
-└── requirements.txt
+scrape.py, clean.py, train_history.py   entry points, one per stage
+src/scraping/    HTTP client, rate limiter, parsers, crawler, CSV writer
+src/cleaning/    cleaning steps and pipeline
+src/modeling/    features, history, estimators, evaluation, training
+tests/           offline tests, one folder per stage
+docs/            design notes (in Portuguese)
 ```
 
-## Estendendo para outros anos
+## Stack
 
-Série A é sempre o `unique-tournament` 325 (constante em `src/config.py`); o ano é
-descoberto dinamicamente. Para 2024:
+Python, httpx, tenacity, Pydantic v2, pandas, scikit-learn, pytest.
 
-```bash
-./.venv/bin/python scrape.py --year 2024
-```
+## Note on data use
 
-Para um torneio diferente (ex.: Copa do Brasil, Série B), troque `TOURNAMENT_ID` no
-`config.py` ou informe `--tournament <id>`.
+Sofascore's API is not an official public API. This code was written for academic research only: it uses low request volume and polite delays, and the collected data is not redistributed (except a single match's API responses used as offline test fixtures).
 
-## Dicionário das colunas (destaques)
+## Author
 
-| Grupo | Colunas |
-|---|---|
-| Partida | `match_id`, `round`, `match_date`, `home/away_team(_id)`, `home/away_score`, `tournament_name`, `season_id/name` |
-| Jogador | `player_id`, `player_name`, `side`, `team_name`, `shirt_number`, `position`, `is_substitute` |
-| Volume | `minutes_played`, `touches`, `rating` (SofaScore) |
-| Finalização | `goals`, `assists`, `shots_total`, `shots_on_target`, `shots_off_target`, `expected_goals`, `expected_assists` |
-| Passe | `passes_total`, `passes_accurate`, `pass_accuracy_pct`, `key_passes`, `big_chance_created/missed` |
-| Duelo/defesa | `duels_won/lost`, `aerial_won/lost`, `tackles_total/won`, `interceptions`, `clearances`, `blocks`, `blocked_shots`, `ball_recovery` |
-| Disciplina | `yellow_cards`, `red_cards`, `card_minutes` (minutos dos cartões) |
-| Outros | `fouls_committed`, `fouls_suffered`, `offsides`, `possession_lost`, `stats_raw_json` (dump bruto p/ auditoria) |
-
-Os CSVs usam `utf-8-sig`, abrindo corretamente no Excel/Sheets com acentos.
-Para análise em pandas basta `pd.read_csv("data/...csv")`.
+Otávio Almeida · morais.otavio@pm.me
