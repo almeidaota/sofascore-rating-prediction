@@ -49,24 +49,23 @@ Test set: 80 matches, 2,494 player-match records.
 python -m venv .venv
 ./.venv/bin/pip install -r requirements.txt
 
-./.venv/bin/python scrape.py          # 1. collect (about 1–2 s between requests)
-./.venv/bin/python clean.py           # 2. pre-process
-./.venv/bin/python train_history.py   # 3. train and evaluate (about 10 min)
+./.venv/bin/python terminal_shortcut/scrape.py          # 1. collect (about 1–2 s between requests)
+./.venv/bin/python terminal_shortcut/clean.py           # 2. pre-process
+./.venv/bin/python terminal_shortcut/train_history.py   # 3. train and evaluate (about 10 min)
 
-./.venv/bin/python -m pytest -q       # tests run offline
+./.venv/bin/python -m pytest -q                         # tests run offline
 ```
 
-The dataset is **not included** in this repository. Sofascore data belongs to Sofascore, so run `scrape.py` to rebuild it.
+The dataset is **not included** in this repository. Sofascore data belongs to Sofascore, so run `terminal_shortcut/scrape.py` to rebuild it.
 
 ## Repository layout
 
 ```text
-scrape.py, clean.py, train_history.py   entry points, one per stage
-src/scraping/    HTTP client, rate limiter, parsers, crawler, CSV writer
-src/cleaning/    cleaning steps and pipeline
-src/modeling/    features, history, estimators, evaluation, training
-tests/           offline tests, one folder per stage
-docs/            design notes (in Portuguese)
+terminal_shortcut/ entry points, one per stage
+src/scraping/      HTTP client, rate limiter, parsers, crawler, CSV writer
+src/cleaning/      cleaning steps and pipeline
+src/modeling/      features, history, estimators, evaluation, training
+tests/             offline tests, one folder per stage
 ```
 
 ## Stack

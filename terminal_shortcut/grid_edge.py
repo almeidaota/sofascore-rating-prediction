@@ -1,4 +1,4 @@
-"""Entry point: python grid_edge.py
+"""Entry point: python terminal_shortcut/grid_edge.py
 
 Diagnóstico da borda da grade: com a grade de `estimators.PARAM_GRID`, os
 especialistas de goleiro e defensor e o modelo genérico escolheram
@@ -14,7 +14,7 @@ from pathlib import Path
 import sys
 import warnings
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
