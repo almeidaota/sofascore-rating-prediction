@@ -1,4 +1,4 @@
-"""Shared training helpers for the pre-match experiment (docs/modelagem.md, seção 12+)."""
+"""Shared training helpers for the pre-match experiment."""
 from __future__ import annotations
 
 from typing import Callable

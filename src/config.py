@@ -19,7 +19,7 @@ TIMEZONE = "America/Sao_Paulo"
 RANDOM_STATE = 42
 N_BOOTSTRAP = 2000
 
-# Segundo experimento: previsão pré-jogo (docs/modelagem.md, seção 12)
+# Segundo experimento: previsão pré-jogo
 RESULTS_HISTORY_DIR = DATA_DIR / "results_history"
 HISTORY_TEST_N_MATCHES = 80
 WALK_FORWARD_STEP_MATCHES = 10

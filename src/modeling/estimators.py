@@ -1,4 +1,4 @@
-"""Random Forest construction and hyperparameter tuning (docs/modelagem.md, seção 3-4)."""
+"""Random Forest construction and hyperparameter tuning."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -76,8 +76,8 @@ def refit_with_params(
     n_estimators: int = 500,
 ) -> TuneResult:
     """Reajusta um Random Forest com hiperparâmetros JÁ escolhidos, sem rodar
-    `GridSearchCV` de novo -- usado no walk-forward (docs/modelagem.md, seção
-    18) pra não re-tunar a cada rodada nova incorporada ao treino. `cv_mae`
+    `GridSearchCV` de novo -- usado no walk-forward
+    pra não re-tunar a cada rodada nova incorporada ao treino. `cv_mae`
     fica `NaN` (não há validação cruzada aqui); `oob_mae` continua disponível
     via `oob_score=True`."""
     model = make_forest(random_state=random_state, n_estimators=n_estimators, **params)

@@ -1,4 +1,4 @@
-"""Metrics, bootstrap comparison and feature importance (docs/modelagem.md, seção 5)."""
+"""Metrics, bootstrap comparison and feature importance."""
 from __future__ import annotations
 
 import numpy as np

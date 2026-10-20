@@ -1,5 +1,5 @@
 """Pre-match features: opponent strength and player form, using only matches
-strictly before the one being predicted (docs/modelagem.md, seções 12-14).
+strictly before the one being predicted.
 
 Chronology is always by `kickoff_timestamp`, never by `round` -- `round` does
 not reliably track real match order (postponed matches), so sorting by it
@@ -199,8 +199,8 @@ def walk_forward_splits(
     tudo estritamente ANTERIOR ao lote (por `kickoff_timestamp`, nunca por
     `round`), prevê um lote de `step_matches` partidas, e no próximo passo
     esse lote já faz parte do treino -- exatamente a ideia de "prevê a
-    rodada, incorpora ao treino, prevê a próxima" (docs/modelagem.md, seção
-    18), só que os lotes são cronológicos, não por número de rodada."""
+    rodada, incorpora ao treino, prevê a próxima",
+    só que os lotes são cronológicos, não por número de rodada."""
     matches = (
         df[[match_id_col, timestamp_col]]
         .drop_duplicates(subset=match_id_col)

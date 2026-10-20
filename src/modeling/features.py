@@ -1,4 +1,4 @@
-"""Pure feature-building helpers for the modelling experiment (docs/modelagem.md)."""
+"""Pure feature-building helpers for the modelling experiment."""
 from __future__ import annotations
 
 import pandas as pd

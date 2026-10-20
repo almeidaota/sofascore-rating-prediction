@@ -1,6 +1,6 @@
 """Training step for the pre-match experiment: cleaned dataset -> baseline /
 generic / specialists, using only context (opponent, mandante/visitante) and
-player history, validated walk-forward, in data/results_history/ (docs/modelagem.md)."""
+player history, validated walk-forward, in data/results_history/."""
 from __future__ import annotations
 
 import argparse
@@ -45,7 +45,7 @@ def run_history_training(
 ) -> dict[str, int]:
     """Walk-forward: treina, prevê um lote de `step_matches` partidas (por
     `kickoff_timestamp`), incorpora esse lote ao treino e prevê o próximo, até
-    cobrir as últimas `n_test_matches` partidas (docs/modelagem.md, seção 17).
+    cobrir as últimas `n_test_matches` partidas.
 
     Por padrão (`retune_each_step=False`), os hiperparâmetros são escolhidos
     via `GridSearchCV` só no primeiro lote; nos lotes seguintes o modelo só é

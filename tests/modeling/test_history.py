@@ -1,6 +1,6 @@
 """Tests for pre-match features (opponent strength + player history): the
 core risk is look-ahead leakage, so most tests pit `round` against
-`kickoff_timestamp` explicitly (docs/modelagem.md, seção 13)."""
+`kickoff_timestamp` explicitly."""
 import numpy as np
 import pandas as pd
 import pytest
